@@ -1,11 +1,15 @@
 {
   "domain": "avvisi_targhe",
   "name": "Avvisi Targhe",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "documentation": "https://github.com/telard-pixel/ha-avvisi-targhe",
   "issue_tracker": "https://github.com/telard-pixel/ha-avvisi-targhe/issues",
-  "dependencies": ["webhook"],
-  "codeowners": ["@telard-pixel"],
+  "dependencies": [
+    "webhook"
+  ],
+  "codeowners": [
+    "@telard-pixel"
+  ],
   "config_flow": true,
   "iot_class": "local_push",
   "integration_type": "device",

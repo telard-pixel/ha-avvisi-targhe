@@ -57,6 +57,9 @@
           "scollegato": "Scollegato",
           "avvio": "Avvio"
         }
+      },
+      "ultimo_comando": {
+        "name": "Ultimo comando"
       }
     },
     "binary_sensor": {
@@ -88,6 +91,112 @@
           }
         }
       }
+    },
+    "switch": {
+      "avvisi": {
+        "name": "Avvisi"
+      }
+    },
+    "number": {
+      "durata_pausa": {
+        "name": "Durata della pausa"
+      }
+    },
+    "button": {
+      "ricollega_nvr": {
+        "name": "Ricollega NVR"
+      },
+      "riavvia_app": {
+        "name": "Riavvia app"
+      },
+      "controlla_aggiornamenti": {
+        "name": "Controlla aggiornamenti"
+      },
+      "installa_aggiornamento": {
+        "name": "Installa aggiornamento"
+      }
+    }
+  },
+  "exceptions": {
+    "non_configurato": {
+      "message": "Avvisi Targhe non è configurato."
+    },
+    "app_ferma": {
+      "message": "L'app Avvisi Targhe non è accesa: il comando non arriverebbe."
+    }
+  },
+  "selector": {
+    "tipo_targa": {
+      "options": {
+        "normale": "Normale",
+        "segui": "Avvisami quando arriva",
+        "silenziosa": "Silenziosa",
+        "nera": "Lista nera"
+      }
+    }
+  },
+  "services": {
+    "pausa": {
+      "name": "Metti in pausa gli avvisi",
+      "description": "Come /pausa del bot: niente avvisi Telegram per questi minuti (la lista nera suona comunque).",
+      "fields": {
+        "minuti": {
+          "name": "Minuti",
+          "description": "Da 1 minuto a 7 giorni."
+        }
+      }
+    },
+    "riprendi": {
+      "name": "Riattiva gli avvisi",
+      "description": "Come /riprendi del bot."
+    },
+    "salva_targa": {
+      "name": "Aggiungi o modifica una targa nota",
+      "description": "Come /aggiungi del bot.",
+      "fields": {
+        "targa": {
+          "name": "Targa",
+          "description": "Es. AB123CD (spazi e trattini si tolgono da soli)."
+        },
+        "nome": {
+          "name": "Nome",
+          "description": "Chi è."
+        },
+        "nota": {
+          "name": "Nota",
+          "description": "Facoltativa."
+        },
+        "tipo": {
+          "name": "Tipo",
+          "description": "Come avvisare quando passa."
+        }
+      }
+    },
+    "togli_targa": {
+      "name": "Togli una targa nota",
+      "description": "Come /togli del bot.",
+      "fields": {
+        "targa": {
+          "name": "Targa",
+          "description": "Es. AB123CD (spazi e trattini si tolgono da soli)."
+        }
+      }
+    },
+    "ricollega_nvr": {
+      "name": "Ricollega l'NVR",
+      "description": "Chiude e riapre il collegamento all'NVR."
+    },
+    "riavvia_app": {
+      "name": "Riavvia l'app",
+      "description": "Riavvia Avvisi Targhe sul PC."
+    },
+    "controlla_aggiornamenti": {
+      "name": "Controlla aggiornamenti",
+      "description": "L'esito arriva in Ultimo comando."
+    },
+    "installa_aggiornamento": {
+      "name": "Installa aggiornamento",
+      "description": "Se c'è una versione nuova l'app la installa e si riavvia."
     }
   }
 }

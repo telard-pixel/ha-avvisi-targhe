@@ -17,7 +17,7 @@ from .entity import AvvisiTargheEntity
 async def async_setup_entry(hass: HomeAssistant, entry: AvvisiTargheConfigEntry,
                             async_add_entities: AddEntitiesCallback) -> None:
     hub = entry.runtime_data.hub
-    async_add_entities([LastPlate(hub), LastPassage(hub), PassagesToday(hub), Inside(hub), NvrState(hub)])
+    async_add_entities([LastPlate(hub), LastPassage(hub), PassagesToday(hub), Inside(hub), NvrState(hub), LastCommand(hub)])
 
 
 class LastPlate(AvvisiTargheEntity, SensorEntity):
@@ -103,3 +103,25 @@ class NvrState(AvvisiTargheEntity, SensorEntity):
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         return {"dettaglio": (self.hub.status or {}).get("dettaglio")}
+
+
+class LastCommand(AvvisiTargheEntity, SensorEntity):
+    """Esito dell'ultimo comando mandato all'app, come risponde il bot."""
+
+    _attr_icon = "mdi:console-line"
+
+    def __init__(self, hub) -> None:
+        super().__init__(hub, "ultimo_comando")
+
+    @property
+    def native_value(self) -> str | None:
+        if self.hub.commands:
+            return "in attesa dell'app"
+        r = self.hub.last_result
+        return (r.get("messaggio") or ("fatto" if r.get("ok") else "non riuscito"))[:250] if r else None
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        r = self.hub.last_result or {}
+        return {"comando": r.get("tipo"), "riuscito": r.get("ok"), "chi": r.get("chi"), "quando": r.get("quando"),
+                "in_attesa": [c["tipo"] for c in self.hub.commands]}

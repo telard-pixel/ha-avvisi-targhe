@@ -57,6 +57,9 @@
           "scollegato": "Disconnected",
           "avvio": "Starting"
         }
+      },
+      "ultimo_comando": {
+        "name": "Last command"
       }
     },
     "binary_sensor": {
@@ -88,6 +91,112 @@
           }
         }
       }
+    },
+    "switch": {
+      "avvisi": {
+        "name": "Alerts"
+      }
+    },
+    "number": {
+      "durata_pausa": {
+        "name": "Pause length"
+      }
+    },
+    "button": {
+      "ricollega_nvr": {
+        "name": "Reconnect NVR"
+      },
+      "riavvia_app": {
+        "name": "Restart app"
+      },
+      "controlla_aggiornamenti": {
+        "name": "Check for updates"
+      },
+      "installa_aggiornamento": {
+        "name": "Install update"
+      }
+    }
+  },
+  "exceptions": {
+    "non_configurato": {
+      "message": "Avvisi Targhe is not set up."
+    },
+    "app_ferma": {
+      "message": "The Avvisi Targhe app is not running."
+    }
+  },
+  "selector": {
+    "tipo_targa": {
+      "options": {
+        "normale": "Normal",
+        "segui": "Follow",
+        "silenziosa": "Silent",
+        "nera": "Blacklist"
+      }
+    }
+  },
+  "services": {
+    "pausa": {
+      "name": "Pause alerts",
+      "description": "Like the bot's /pausa.",
+      "fields": {
+        "minuti": {
+          "name": "Minutes",
+          "description": "1 minute to 7 days."
+        }
+      }
+    },
+    "riprendi": {
+      "name": "Resume alerts",
+      "description": "Like the bot's /riprendi."
+    },
+    "salva_targa": {
+      "name": "Add or edit a known plate",
+      "description": "Like the bot's /aggiungi.",
+      "fields": {
+        "targa": {
+          "name": "Plate",
+          "description": "E.g. AB123CD."
+        },
+        "nome": {
+          "name": "Name",
+          "description": "Who it is."
+        },
+        "nota": {
+          "name": "Note",
+          "description": "Optional."
+        },
+        "tipo": {
+          "name": "Kind",
+          "description": "How to alert."
+        }
+      }
+    },
+    "togli_targa": {
+      "name": "Remove a known plate",
+      "description": "Like the bot's /togli.",
+      "fields": {
+        "targa": {
+          "name": "Plate",
+          "description": "E.g. AB123CD."
+        }
+      }
+    },
+    "ricollega_nvr": {
+      "name": "Reconnect NVR",
+      "description": "Reconnects to the NVR."
+    },
+    "riavvia_app": {
+      "name": "Restart app",
+      "description": "Restarts the app."
+    },
+    "controlla_aggiornamenti": {
+      "name": "Check for updates",
+      "description": "Result in Last command."
+    },
+    "installa_aggiornamento": {
+      "name": "Install update",
+      "description": "Installs a new version if any."
     }
   }
 }

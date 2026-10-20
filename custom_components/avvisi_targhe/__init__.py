@@ -13,13 +13,19 @@ from homeassistant.components import webhook
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers.typing import ConfigType
 
 from .const import CONF_WEBHOOK_ID, DOMAIN
 from .hub import AvvisiTargheHub
+from .services import async_setup_services
+
+CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
 _LOGGER = logging.getLogger(__name__)
 
-PLATFORMS = [Platform.BINARY_SENSOR, Platform.EVENT, Platform.IMAGE, Platform.SENSOR]
+PLATFORMS = [Platform.BINARY_SENSOR, Platform.BUTTON, Platform.EVENT, Platform.IMAGE, Platform.NUMBER,
+             Platform.SENSOR, Platform.SWITCH]
 
 #: Corpo massimo accettato: un passaggio con la miniatura sta sotto i 300 KB.
 MAX_BODY = 1_000_000
@@ -31,6 +37,11 @@ class RuntimeData:
 
 
 type AvvisiTargheConfigEntry = ConfigEntry[RuntimeData]
+
+
+async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
+    async_setup_services(hass)
+    return True
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: AvvisiTargheConfigEntry) -> bool:
@@ -48,6 +59,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: AvvisiTargheConfigEntry)
         if not isinstance(body, dict):
             return web.Response(status=HTTPStatus.BAD_REQUEST)
         kind = body.get("tipo")
+        # Esiti dei comandi: possono arrivare con qualunque richiesta dell'app.
+        hub.async_results(body.get("esiti"))
         if kind == "prova":
             # L'app riconosce l'integrazione da questa risposta (un webhook sconosciuto dà 200 vuoto).
             _LOGGER.info("Prova di collegamento ricevuta dall'app Avvisi Targhe")
@@ -58,9 +71,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: AvvisiTargheConfigEntry)
             ok = hub.async_passage(raw, photo)
         elif kind == "stato":
             ok = hub.async_status(body.get("stato"))
+        elif kind == "comandi":
+            ok = True
         else:
             ok = False
-        return web.json_response({"ricevuto": ok}, status=HTTPStatus.OK if ok else HTTPStatus.BAD_REQUEST)
+        if not ok:
+            return web.json_response({"ricevuto": False}, status=HTTPStatus.BAD_REQUEST)
+        return web.json_response({"ricevuto": True, "comandi": hub.take_commands()})
 
     # Solo dalla rete locale: l'app è sullo stesso posto di Home Assistant.
     webhook.async_register(hass, DOMAIN, "Avvisi Targhe", entry.data[CONF_WEBHOOK_ID], handle,
