@@ -33,7 +33,9 @@ class LastPlate(AvvisiTargheEntity, SensorEntity):
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         p = self.hub.last_passage or {}
-        return {k: p.get(k) for k in ("nome", "verso", "tipo", "quando", "targa_nota", "in_ritardo")}
+        attrs = {k: p.get(k) for k in ("nome", "verso", "tipo", "quando", "targa_nota", "in_ritardo")}
+        attrs["ultimi"] = [{k: q.get(k) for k in ("quando", "targa", "nome", "verso", "tipo")} for q in self.hub.recent]
+        return attrs
 
 
 class LastPassage(AvvisiTargheEntity, SensorEntity):

@@ -165,3 +165,25 @@ async def test_chiusa_apposta_e_riavvio_di_home_assistant(hass: HomeAssistant, h
     await hass.async_block_till_done()
     assert hass.states.get("sensor.avvisi_targhe_ultima_targa").state == "AB123CD"
     assert hass.states.get("image.avvisi_targhe_ultima_foto").state != "unavailable"
+
+
+async def test_ultimi_passaggi_in_ordine(hass: HomeAssistant, hass_client_no_auth) -> None:
+    entry = await _setup(hass)
+    client = await hass_client_no_auth()
+    now = dt_util.now().replace(microsecond=0)
+    for i, plate in enumerate(["AA111AA", "BB222BB", "CC333CC"]):
+        await client.post(f"/api/webhook/{WEBHOOK}", json=_passage(quando=(now + timedelta(seconds=i)).isoformat(), targa=plate))
+    # Arretrato: finisce in fondo, non in cima.
+    await client.post(f"/api/webhook/{WEBHOOK}", json=_passage(quando=(now - timedelta(hours=1)).isoformat(), targa="OLD111"))
+    await hass.async_block_till_done()
+    recent = hass.states.get("sensor.avvisi_targhe_ultima_targa").attributes["ultimi"]
+    assert [p["targa"] for p in recent] == ["CC333CC", "BB222BB", "AA111AA", "OLD111"]
+    assert "foto" not in recent[0]
+    for i in range(30):
+        await client.post(f"/api/webhook/{WEBHOOK}", json=_passage(quando=(now + timedelta(minutes=1, seconds=i)).isoformat(), targa=f"X{i:03d}XX"))
+    await hass.async_block_till_done()
+    assert len(hass.states.get("sensor.avvisi_targhe_ultima_targa").attributes["ultimi"]) == 20
+    # Dopo un riavvio l'elenco resta.
+    assert await hass.config_entries.async_reload(entry.entry_id)
+    await hass.async_block_till_done()
+    assert len(hass.states.get("sensor.avvisi_targhe_ultima_targa").attributes["ultimi"]) == 20

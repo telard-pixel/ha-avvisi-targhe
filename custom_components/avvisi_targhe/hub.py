@@ -24,6 +24,8 @@ from .const import APP_TIMEOUT, DOMAIN, EVENT_PASSAGE, MAX_PHOTO_BYTES, TIPI, VE
 _LOGGER = logging.getLogger(__name__)
 
 STORAGE_VERSION = 1
+#: Passaggi tenuti per l'elenco in dashboard (attributo "ultimi" dell'ultima targa).
+RECENT = 20
 _PLATE = re.compile(r"^[A-Z0-9]{1,12}$")
 
 
@@ -121,6 +123,7 @@ class AvvisiTargheHub:
         self._passage_listeners: list[Callable[[dict[str, Any]], None]] = []
         self._unsub_timer: CALLBACK_TYPE | None = None
         self.last_passage: dict[str, Any] | None = None
+        self.recent: list[dict[str, Any]] = []
         self.photo: bytes | None = None
         self.photo_at: datetime | None = None
         self.status: dict[str, Any] | None = None
@@ -131,6 +134,7 @@ class AvvisiTargheHub:
     async def async_load(self) -> None:
         data = await self._store.async_load() or {}
         self.last_passage = data.get("ultimo")
+        self.recent = [p for p in data.get("ultimi") or [] if isinstance(p, dict)][:RECENT]
         self.status = data.get("stato")
         self.status_at = _time(data.get("stato_alle"))
         self.today = data.get("oggi", 0) if isinstance(data.get("oggi"), int) else 0
@@ -144,6 +148,7 @@ class AvvisiTargheHub:
     def _data(self) -> dict[str, Any]:
         return {
             "ultimo": self.last_passage,
+            "ultimi": self.recent,
             "stato": self.status,
             "stato_alle": self.status_at.isoformat() if self.status_at else None,
             "oggi": self.today,
@@ -218,6 +223,8 @@ class AvvisiTargheHub:
             self.last_passage = passage
             # Senza foto per questo passaggio si toglie anche la vecchia: mai una foto di un'altra auto.
             self.photo, self.photo_at = photo, when
+        # Elenco dal più recente; un arretrato va al suo posto, non in cima.
+        self.recent = sorted([*self.recent, passage], key=lambda p: p["quando"], reverse=True)[:RECENT]
         self.hass.bus.async_fire(EVENT_PASSAGE, {**passage, "ha_foto": photo is not None})
         for handler in list(self._passage_listeners):
             handler(passage)
