@@ -236,7 +236,7 @@ async def test_storico_per_giorno(hass: HomeAssistant, hass_client_no_auth, free
 
     select = hass.states.get("select.avvisi_targhe_giorno")
     assert select.state == "Oggi"
-    assert select.attributes["options"][:3] == ["Oggi", "Ieri", "Sabato 17/10"]
+    assert select.attributes["options"][:3] == ["Oggi", "Ieri", "Domenica 18/10"]
     assert len(select.attributes["options"]) == 7
     await hass.services.async_call("select", "select_option", {"entity_id": "select.avvisi_targhe_giorno", "option": "Ieri"},
                                    blocking=True)
