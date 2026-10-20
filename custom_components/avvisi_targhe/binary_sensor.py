@@ -73,7 +73,7 @@ class Paused(AvvisiTargheEntity, BinarySensorEntity):
 
     @property
     def is_on(self) -> bool:
-        return bool((self.hub.status or {}).get("pausa_fino"))
+        return self.hub.paused
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:

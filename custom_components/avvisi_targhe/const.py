@@ -28,3 +28,8 @@ COMMAND_EXPIRY = timedelta(minutes=10)
 
 #: Tipi di targa per il servizio salva_targa (come nell'app).
 TIPI_TARGA = ("normale", "segui", "silenziosa", "nera")
+
+#: Storico dei passaggi tenuto in Home Assistant (pagina "Storico passaggi" della dashboard).
+HISTORY_DAYS = 7
+#: Tetto di sicurezza: anche nei giorni pieni (240 passaggi) 7 giorni stanno sotto.
+HISTORY_MAX = 4000

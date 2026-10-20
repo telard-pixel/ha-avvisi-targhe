@@ -12,12 +12,14 @@ from homeassistant.util import dt as dt_util
 
 from . import AvvisiTargheConfigEntry
 from .entity import AvvisiTargheEntity
+from .select import day_label
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: AvvisiTargheConfigEntry,
                             async_add_entities: AddEntitiesCallback) -> None:
     hub = entry.runtime_data.hub
-    async_add_entities([LastPlate(hub), LastPassage(hub), PassagesToday(hub), Inside(hub), NvrState(hub), LastCommand(hub)])
+    async_add_entities([LastPlate(hub), LastPassage(hub), PassagesToday(hub), Inside(hub), NvrState(hub), LastCommand(hub),
+                        PassagesOfDay(hub)])
 
 
 class LastPlate(AvvisiTargheEntity, SensorEntity):
@@ -125,3 +127,35 @@ class LastCommand(AvvisiTargheEntity, SensorEntity):
         r = self.hub.last_result or {}
         return {"comando": r.get("tipo"), "riuscito": r.get("ok"), "chi": r.get("chi"), "quando": r.get("quando"),
                 "in_attesa": [c["tipo"] for c in self.hub.commands]}
+
+
+class PassagesOfDay(AvvisiTargheEntity, SensorEntity):
+    """Passaggi del giorno scelto in "Giorno" (pagina Storico passaggi della dashboard)."""
+
+    _attr_icon = "mdi:history"
+    _attr_native_unit_of_measurement = "passaggi"
+    # L'elenco può essere lungo (240 passaggi in un giorno pieno): niente database, lo storico è già nell'integrazione.
+    _unrecorded_attributes = frozenset({"passaggi"})
+
+    def __init__(self, hub) -> None:
+        super().__init__(hub, "passaggi_giorno")
+
+    @property
+    def native_value(self) -> int:
+        return len(self.hub.passages_of_day(self.hub.day_offset))
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        offset = self.hub.day_offset
+        day = self.hub.passages_of_day(offset)
+        return {
+            "giorno": self.hub.day_start(offset).date().isoformat(),
+            "etichetta": day_label(offset),
+            "entrate": sum(p["verso"] == "entrata" for p in day),
+            "uscite": sum(p["verso"] == "uscita" for p in day),
+            "passaggi": [
+                {"ora": dt_util.as_local(dt_util.parse_datetime(p["quando"])).strftime("%H:%M"),
+                 **{k: p.get(k) for k in ("quando", "targa", "nome", "verso", "tipo", "in_ritardo")}}
+                for p in day
+            ],
+        }

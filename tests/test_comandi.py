@@ -58,11 +58,15 @@ async def test_pausa_dallo_switch_fino_all_esito(hass: HomeAssistant, hass_clien
     assert await _poll(client) == []
 
     events = async_capture_events(hass, EVENT_RESULT)
+    changes = async_capture_events(hass, "state_changed")
     until = (dt_util.now() + timedelta(minutes=30)).isoformat()
     await client.post(f"/api/webhook/{WEBHOOK}", json={"tipo": "stato", "stato": {**STATO, "pausa_fino": until},
                       "esiti": [{"id": commands[0]["id"], "ok": True, "messaggio": "avvisi in pausa fino alle 18:30"}]})
     await hass.async_block_till_done()
     assert hass.states.get("switch.avvisi_targhe_avvisi").state == "off"
+    # Esito e stato nuovo nella stessa richiesta: l'interruttore non torna acceso nemmeno per un attimo.
+    assert not [e for e in changes if e.data["entity_id"] == "switch.avvisi_targhe_avvisi"
+                and e.data["new_state"].state != e.data["old_state"].state]
     last = hass.states.get("sensor.avvisi_targhe_ultimo_comando")
     assert last.state == "avvisi in pausa fino alle 18:30"
     assert last.attributes["riuscito"] is True and last.attributes["comando"] == "pausa"
@@ -109,3 +113,31 @@ async def test_pulsante_rimandato_e_poi_scaduto(hass: HomeAssistant, hass_client
     last = hass.states.get("sensor.avvisi_targhe_ultimo_comando")
     assert last.attributes["riuscito"] is False
     assert "10 minuti" in last.state
+    # L'app l'aveva eseguito e l'esito arriva tardi: si mostra lo stesso.
+    await _poll(client, [{"id": first[0]["id"], "ok": True, "messaggio": "NVR ricollegato"}])
+    await hass.async_block_till_done()
+    last = hass.states.get("sensor.avvisi_targhe_ultimo_comando")
+    assert last.attributes["riuscito"] is True
+    assert last.state.startswith("NVR ricollegato")
+
+
+async def test_id_dei_comandi_mai_ripetuti_e_pausa_scaduta(hass: HomeAssistant, hass_client_no_auth,
+                                                           freezer: FrozenDateTimeFactory) -> None:
+    await _setup(hass)
+    client = await hass_client_no_auth()
+    await _app_on(client, pausa_fino=(dt_util.now() + timedelta(minutes=2)).isoformat())
+    await hass.async_block_till_done()
+    assert hass.states.get("binary_sensor.avvisi_targhe_pausa").state == "on"
+    # Pausa finita: si vede anche prima che arrivi lo stato nuovo dell'app.
+    freezer.tick(timedelta(minutes=2, seconds=31))
+    async_fire_time_changed(hass)
+    await hass.async_block_till_done()
+    assert hass.states.get("binary_sensor.avvisi_targhe_pausa").state == "off"
+    assert hass.states.get("switch.avvisi_targhe_avvisi").state == "on"
+
+    await _app_on(client)
+    await hass.services.async_call(DOMAIN, "riprendi", {}, blocking=True)
+    await hass.services.async_call(DOMAIN, "riprendi", {}, blocking=True)
+    ids = [c["id"] for c in await _poll(client)]
+    # Dall'orologio: anche con un'integrazione rimessa da capo non tornano gli id già eseguiti dall'app.
+    assert ids[0] > 1_700_000_000_000 and ids[1] > ids[0]

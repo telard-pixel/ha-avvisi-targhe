@@ -34,7 +34,7 @@ class AlertsSwitch(AvvisiTargheEntity, SwitchEntity):
         # Comando appena dato e non ancora confermato dall'app: si mostra già lo stato voluto.
         if pending := self.hub.pending("pausa", "riprendi"):
             return pending["tipo"] == "riprendi"
-        return not (self.hub.status or {}).get("pausa_fino")
+        return not self.hub.paused
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:

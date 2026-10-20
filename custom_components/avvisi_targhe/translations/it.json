@@ -60,6 +60,9 @@
       },
       "ultimo_comando": {
         "name": "Ultimo comando"
+      },
+      "passaggi_giorno": {
+        "name": "Passaggi del giorno"
       }
     },
     "binary_sensor": {
@@ -114,6 +117,11 @@
       },
       "installa_aggiornamento": {
         "name": "Installa aggiornamento"
+      }
+    },
+    "select": {
+      "giorno": {
+        "name": "Giorno"
       }
     }
   },

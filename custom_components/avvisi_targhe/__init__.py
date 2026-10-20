@@ -25,7 +25,7 @@ CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 _LOGGER = logging.getLogger(__name__)
 
 PLATFORMS = [Platform.BINARY_SENSOR, Platform.BUTTON, Platform.EVENT, Platform.IMAGE, Platform.NUMBER,
-             Platform.SENSOR, Platform.SWITCH]
+             Platform.SELECT, Platform.SENSOR, Platform.SWITCH]
 
 #: Corpo massimo accettato: un passaggio con la miniatura sta sotto i 300 KB.
 MAX_BODY = 1_000_000
@@ -59,8 +59,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: AvvisiTargheConfigEntry)
         if not isinstance(body, dict):
             return web.Response(status=HTTPStatus.BAD_REQUEST)
         kind = body.get("tipo")
-        # Esiti dei comandi: possono arrivare con qualunque richiesta dell'app.
-        hub.async_results(body.get("esiti"))
         if kind == "prova":
             # L'app riconosce l'integrazione da questa risposta (un webhook sconosciuto dà 200 vuoto).
             _LOGGER.info("Prova di collegamento ricevuta dall'app Avvisi Targhe")
@@ -68,15 +66,28 @@ async def async_setup_entry(hass: HomeAssistant, entry: AvvisiTargheConfigEntry)
         if kind == "passaggio":
             raw = body.get("passaggio")
             photo = raw.pop("foto", None) if isinstance(raw, dict) else None
-            ok = hub.async_passage(raw, photo)
+            # Un passaggio scartato risponde comunque 200: con un errore l'app lo rimanderebbe per
+            # sempre, ferma lì, senza più mandare né stato né esiti.
+            if not hub.async_passage(raw, photo):
+                hub.async_results(body.get("esiti"))
+                return web.json_response({"ricevuto": False, "comandi": hub.take_commands()})
+            ok = True
         elif kind == "stato":
             ok = hub.async_status(body.get("stato"))
+        elif kind == "storico":
+            if (added := hub.async_history(body.get("passaggi"))) is None:
+                return web.json_response({"ricevuto": False}, status=HTTPStatus.BAD_REQUEST)
+            hub.async_results(body.get("esiti"))
+            return web.json_response({"ricevuto": True, "aggiunti": added, "comandi": hub.take_commands()})
         elif kind == "comandi":
             ok = True
         else:
             ok = False
         if not ok:
             return web.json_response({"ricevuto": False}, status=HTTPStatus.BAD_REQUEST)
+        # Esiti dopo lo stato: con l'esito di "pausa" arriva anche lo stato nuovo, e l'interruttore
+        # passa direttamente allo stato giusto invece di tornare un attimo indietro.
+        hub.async_results(body.get("esiti"))
         return web.json_response({"ricevuto": True, "comandi": hub.take_commands()})
 
     # Solo dalla rete locale: l'app è sullo stesso posto di Home Assistant.
@@ -94,3 +105,8 @@ async def async_unload_entry(hass: HomeAssistant, entry: AvvisiTargheConfigEntry
     if unloaded:
         await entry.runtime_data.hub.async_flush()
     return unloaded
+
+
+async def async_remove_entry(hass: HomeAssistant, entry: AvvisiTargheConfigEntry) -> None:
+    """Integrazione tolta: via anche lo stato salvato (con l'ultima foto)."""
+    await AvvisiTargheHub.async_remove_store(hass, entry.entry_id)

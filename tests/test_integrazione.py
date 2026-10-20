@@ -61,7 +61,8 @@ async def test_passaggio_aggiorna_sensori_foto_evento(hass: HomeAssistant, hass_
     await _setup(hass)
     events = async_capture_events(hass, EVENT_PASSAGE)
     client = await hass_client_no_auth()
-    resp = await client.post(f"/api/webhook/{WEBHOOK}", json=_passage())
+    sent = _passage()
+    resp = await client.post(f"/api/webhook/{WEBHOOK}", json=sent)
     assert resp.status == 200
     await hass.async_block_till_done()
 
@@ -78,6 +79,12 @@ async def test_passaggio_aggiorna_sensori_foto_evento(hass: HomeAssistant, hass_
 
     assert len(events) == 1
     assert events[0].data["targa"] == "AB123CD"
+    # Lo stesso passaggio rimandato (la risposta si era persa): niente evento né conteggio doppio.
+    resp = await client.post(f"/api/webhook/{WEBHOOK}", json=sent)
+    assert (await resp.json())["ricevuto"] is True
+    await hass.async_block_till_done()
+    assert len(events) == 1
+    assert hass.states.get("sensor.avvisi_targhe_passaggi_oggi").state == "1"
     assert events[0].data["ha_foto"] is True
     assert "foto" not in events[0].data
 
@@ -115,9 +122,14 @@ async def test_arretrato_non_scavalca_l_ultimo(hass: HomeAssistant, hass_client_
 async def test_dati_non_validi_scartati(hass: HomeAssistant, hass_client_no_auth) -> None:
     await _setup(hass)
     client = await hass_client_no_auth()
-    for bad in (_passage(targa="ab-12/..<script>"), _passage(quando="ieri"), {"tipo": "boh"}, [1, 2]):
+    for bad in ({"tipo": "boh"}, [1, 2], {"tipo": "stato", "stato": "x"}):
         resp = await client.post(f"/api/webhook/{WEBHOOK}", json=bad)
         assert resp.status == 400
+    # Un passaggio scartato risponde 200 "non ricevuto": l'app va avanti invece di rimandarlo per sempre.
+    for bad in (_passage(targa="ab-12/..<script>"), _passage(quando="ieri")):
+        resp = await client.post(f"/api/webhook/{WEBHOOK}", json=bad)
+        assert resp.status == 200
+        assert (await resp.json())["ricevuto"] is False
     # Foto che non è una JPEG: il passaggio vale, la foto no.
     resp = await client.post(f"/api/webhook/{WEBHOOK}", json=_passage(foto=base64.b64encode(b"<svg>").decode()))
     assert resp.status == 200
@@ -187,3 +199,65 @@ async def test_ultimi_passaggi_in_ordine(hass: HomeAssistant, hass_client_no_aut
     assert await hass.config_entries.async_reload(entry.entry_id)
     await hass.async_block_till_done()
     assert len(hass.states.get("sensor.avvisi_targhe_ultima_targa").attributes["ultimi"]) == 20
+
+
+async def test_storico_per_giorno(hass: HomeAssistant, hass_client_no_auth, freezer: FrozenDateTimeFactory) -> None:
+    await hass.config.async_set_time_zone("Europe/Rome")
+    freezer.move_to("2026-10-20 12:00:00+02:00")
+    entry = await _setup(hass)
+    client = await hass_client_no_auth()
+    now = dt_util.now().replace(microsecond=0)
+    # Più di 20 passaggi oggi: lo storico li tiene tutti, "ultimi" resta a 20.
+    for i in range(30):
+        await client.post(f"/api/webhook/{WEBHOOK}", json=_passage(quando=(now - timedelta(minutes=i)).isoformat(),
+                                                                      targa=f"A{i:03d}AA", verso="entrata" if i % 3 else "uscita"))
+    # Riempimento dall'app: ieri, 3 giorni fa, un doppione e uno troppo vecchio (8 giorni).
+    ieri = (now - timedelta(days=1)).isoformat()
+    storico = [{"quando": ieri, "targa": "IE111RI", "verso": "uscita", "tipo": "sconosciuta"},
+               {"quando": ieri, "targa": "IE111RI", "verso": "uscita", "tipo": "sconosciuta"},
+               {"quando": (now - timedelta(days=3)).isoformat(), "targa": "TR333EE", "verso": "entrata"},
+               {"quando": (now - timedelta(days=8)).isoformat(), "targa": "VE888CC", "verso": "entrata"},
+               {"quando": "boh", "targa": "XX"}]
+    events = async_capture_events(hass, EVENT_PASSAGE)
+    resp = await client.post(f"/api/webhook/{WEBHOOK}", json={"tipo": "storico", "passaggi": storico})
+    assert resp.status == 200
+    assert (await resp.json())["aggiunti"] == 2
+    await hass.async_block_till_done()
+    assert events == []  # lo storico non fa partire automazioni
+    assert hass.states.get("sensor.avvisi_targhe_passaggi_oggi").state == "30"
+    assert len(hass.states.get("sensor.avvisi_targhe_ultima_targa").attributes["ultimi"]) == 20
+
+    day = hass.states.get("sensor.avvisi_targhe_passaggi_giorno")
+    assert day.state == "30"
+    assert day.attributes["etichetta"] == "Oggi"
+    assert day.attributes["entrate"] == 20 and day.attributes["uscite"] == 10
+    assert day.attributes["passaggi"][0]["targa"] == "A000AA"
+    assert day.attributes["passaggi"][0]["ora"] == "12:00"
+
+    select = hass.states.get("select.avvisi_targhe_giorno")
+    assert select.state == "Oggi"
+    assert select.attributes["options"][:3] == ["Oggi", "Ieri", "Sabato 17/10"]
+    assert len(select.attributes["options"]) == 7
+    await hass.services.async_call("select", "select_option", {"entity_id": "select.avvisi_targhe_giorno", "option": "Ieri"},
+                                   blocking=True)
+    day = hass.states.get("sensor.avvisi_targhe_passaggi_giorno")
+    assert day.state == "1"
+    assert day.attributes["passaggi"][0]["targa"] == "IE111RI"
+
+    # Dopo un riavvio storico e giorno scelto restano.
+    assert await hass.config_entries.async_reload(entry.entry_id)
+    await hass.async_block_till_done()
+    assert hass.states.get("select.avvisi_targhe_giorno").state == "Ieri"
+    assert hass.states.get("sensor.avvisi_targhe_passaggi_giorno").state == "1"
+
+    # A mezzanotte "Ieri" diventa il giorno di oggi: il giorno scelto è relativo.
+    freezer.move_to("2026-10-21 00:00:30+02:00")
+    async_fire_time_changed(hass)
+    await hass.async_block_till_done()
+    assert hass.states.get("sensor.avvisi_targhe_passaggi_giorno").state == "30"
+
+    # Dopo 7 giorni lo storico si svuota da solo.
+    freezer.move_to("2026-10-28 00:00:30+02:00")
+    async_fire_time_changed(hass)
+    await hass.async_block_till_done()
+    assert entry.runtime_data.hub.history == []
