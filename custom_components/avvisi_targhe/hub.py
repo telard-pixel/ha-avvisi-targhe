@@ -255,9 +255,12 @@ class AvvisiTargheHub:
     def _add_history(self, passages: Any) -> int:
         """Aggiunge i passaggi nuovi (stessa ora, targa e verso = già visto) e rimette in ordine."""
         added = 0
+        start = self.day_start(HISTORY_DAYS - 1)
         for p in passages:
             if p is None or (key := self._key(p)) in self._history_keys:
                 continue
+            if (when := _time(p["quando"])) is None or when < start:
+                continue  # più vecchio dello storico
             self.history.append(p)
             self._history_keys.add(key)
             added += 1
