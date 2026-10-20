@@ -1,0 +1,93 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Avvisi Targhe",
+        "description": "Copia questo codice nell'app Avvisi Targhe sul PC del ristorante: **Opzioni → Home Assistant → Codice di Home Assistant**. Come indirizzo metti quello di questo Home Assistant (es. `http://192.168.1.50:8123`), poi premi **Prova** nell'app.\n\nCodice: `{codice}`\n\nIl codice è come una password: chi lo conosce, dalla rete del ristorante, può mandare passaggi finti. Per rivederlo: Avvisi Targhe → ⋮ → Riconfigura."
+      },
+      "reconfigure": {
+        "title": "Codice per l'app",
+        "description": "Codice da mettere nell'app (Opzioni → Home Assistant): `{codice}`"
+      }
+    },
+    "abort": {
+      "already_configured": "Avvisi Targhe è già configurato.",
+      "single_instance_allowed": "Avvisi Targhe è già configurato.",
+      "codice_mostrato": "Il codice non è cambiato."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "ultima_targa": {
+        "name": "Ultima targa",
+        "state_attributes": {
+          "nome": {
+            "name": "Nome"
+          },
+          "verso": {
+            "name": "Verso"
+          },
+          "tipo": {
+            "name": "Tipo"
+          },
+          "quando": {
+            "name": "Quando"
+          },
+          "targa_nota": {
+            "name": "Targa nota"
+          },
+          "in_ritardo": {
+            "name": "Arrivato in ritardo"
+          }
+        }
+      },
+      "ultimo_passaggio": {
+        "name": "Ultimo passaggio"
+      },
+      "passaggi_oggi": {
+        "name": "Passaggi oggi"
+      },
+      "veicoli_dentro": {
+        "name": "Veicoli dentro"
+      },
+      "stato_nvr": {
+        "name": "Stato NVR",
+        "state": {
+          "collegato": "Collegato",
+          "scollegato": "Scollegato",
+          "avvio": "Avvio"
+        }
+      }
+    },
+    "binary_sensor": {
+      "app_attiva": {
+        "name": "App accesa"
+      },
+      "telecamera_muta": {
+        "name": "Telecamera muta"
+      },
+      "pausa": {
+        "name": "Avvisi in pausa"
+      }
+    },
+    "image": {
+      "ultima_foto": {
+        "name": "Foto ultimo passaggio"
+      }
+    },
+    "event": {
+      "passaggio": {
+        "name": "Passaggio",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "entrata": "Entrata",
+              "uscita": "Uscita",
+              "passaggio": "Senza verso"
+            }
+          }
+        }
+      }
+    }
+  }
+}

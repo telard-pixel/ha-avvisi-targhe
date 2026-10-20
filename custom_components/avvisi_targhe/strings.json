@@ -1,0 +1,93 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Avvisi Targhe",
+        "description": "Copy this code into the Avvisi Targhe app on the restaurant PC: **Options → Home Assistant → Home Assistant code**. Use this Home Assistant's address (e.g. `http://192.168.1.50:8123`), then press **Test** in the app.\n\nCode: `{codice}`\n\nTreat the code like a password. To see it again: Avvisi Targhe → ⋮ → Reconfigure."
+      },
+      "reconfigure": {
+        "title": "Code for the app",
+        "description": "Code for the app (Options → Home Assistant): `{codice}`"
+      }
+    },
+    "abort": {
+      "already_configured": "Avvisi Targhe is already configured.",
+      "single_instance_allowed": "Avvisi Targhe is already configured.",
+      "codice_mostrato": "The code has not changed."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "ultima_targa": {
+        "name": "Last plate",
+        "state_attributes": {
+          "nome": {
+            "name": "Name"
+          },
+          "verso": {
+            "name": "Direction"
+          },
+          "tipo": {
+            "name": "Kind"
+          },
+          "quando": {
+            "name": "When"
+          },
+          "targa_nota": {
+            "name": "Known plate"
+          },
+          "in_ritardo": {
+            "name": "Delayed"
+          }
+        }
+      },
+      "ultimo_passaggio": {
+        "name": "Last passage"
+      },
+      "passaggi_oggi": {
+        "name": "Passages today"
+      },
+      "veicoli_dentro": {
+        "name": "Vehicles inside"
+      },
+      "stato_nvr": {
+        "name": "NVR state",
+        "state": {
+          "collegato": "Connected",
+          "scollegato": "Disconnected",
+          "avvio": "Starting"
+        }
+      }
+    },
+    "binary_sensor": {
+      "app_attiva": {
+        "name": "App running"
+      },
+      "telecamera_muta": {
+        "name": "Camera silent"
+      },
+      "pausa": {
+        "name": "Alerts paused"
+      }
+    },
+    "image": {
+      "ultima_foto": {
+        "name": "Last passage photo"
+      }
+    },
+    "event": {
+      "passaggio": {
+        "name": "Passage",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "entrata": "Entry",
+              "uscita": "Exit",
+              "passaggio": "No direction"
+            }
+          }
+        }
+      }
+    }
+  }
+}
