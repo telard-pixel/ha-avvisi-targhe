@@ -1,7 +1,7 @@
 {
   "domain": "avvisi_targhe",
   "name": "Avvisi Targhe",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "documentation": "https://github.com/telard-pixel/ha-avvisi-targhe",
   "issue_tracker": "https://github.com/telard-pixel/ha-avvisi-targhe/issues",
   "dependencies": [
