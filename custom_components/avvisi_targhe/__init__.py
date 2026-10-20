@@ -75,10 +75,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: AvvisiTargheConfigEntry)
         elif kind == "stato":
             ok = hub.async_status(body.get("stato"))
         elif kind == "storico":
-            if (added := hub.async_history(body.get("passaggi"))) is None:
-                return web.json_response({"ricevuto": False}, status=HTTPStatus.BAD_REQUEST)
+            # Come per il passaggio: anche se scartato, 200 con esiti e comandi (un errore bloccherebbe l'app).
+            added = hub.async_history(body.get("passaggi"))
             hub.async_results(body.get("esiti"))
-            return web.json_response({"ricevuto": True, "aggiunti": added, "comandi": hub.take_commands()})
+            return web.json_response({"ricevuto": added is not None, "aggiunti": added or 0,
+                                      "comandi": hub.take_commands()})
         elif kind == "comandi":
             ok = True
         else:

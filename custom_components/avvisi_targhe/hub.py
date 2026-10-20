@@ -137,6 +137,9 @@ class AvvisiTargheHub:
         self.hass = hass
         self.entry_id = entry_id
         self._store: Store[dict[str, Any]] = Store(hass, STORAGE_VERSION, f"{DOMAIN}.{entry_id}")
+        # Storico e foto a parte (centinaia di KB): si riscrivono solo quando cambiano, non a ogni
+        # stato dell'app (ogni minuto), per non consumare il disco di Home Assistant.
+        self._big_store: Store[dict[str, Any]] = Store(hass, STORAGE_VERSION, f"{DOMAIN}.{entry_id}.storico")
         self._listeners: list[Callable[[], None]] = []
         self._passage_listeners: list[Callable[[dict[str, Any]], None]] = []
         self._unsub_timer: CALLBACK_TYPE | None = None
@@ -164,9 +167,11 @@ class AvvisiTargheHub:
 
     async def async_load(self) -> None:
         data = await self._store.async_load() or {}
+        # Prima della 1.3.0 tutto era in un file solo, con solo gli ultimi 20: diventano l'inizio dello storico.
+        big = await self._big_store.async_load() or {"storico": data.get("ultimi"), "foto": data.get("foto"),
+                                                     "foto_alle": data.get("foto_alle")}
         self.last_passage = data.get("ultimo")
-        # Prima della 1.3.0 c'erano solo gli ultimi 20: diventano l'inizio dello storico.
-        saved = data.get("storico") if isinstance(data.get("storico"), list) else data.get("ultimi")
+        saved = big.get("storico")
         self._add_history(clean_passage(p) for p in saved or [])
         if isinstance(data.get("giorno"), int) and 0 <= data["giorno"] < HISTORY_DAYS:
             self.day_offset = data["giorno"]
@@ -181,23 +186,20 @@ class AvvisiTargheHub:
                 self.awaiting[c["id"]] = {k: c.get(k) for k in ("id", "tipo", "chi")}
         if isinstance(data.get("durata_pausa"), int):
             self.pause_minutes = data["durata_pausa"]
-        if (photo := data.get("foto")) and (decoded := clean_photo(photo)):
+        if (photo := big.get("foto")) and (decoded := clean_photo(photo)):
             self.photo = decoded
-            self.photo_at = _time(data.get("foto_alle"))
+            self.photo_at = _time(big.get("foto_alle"))
         # Ogni 30 s: "app attiva" diventa spenta da sola se lo stato smette di arrivare.
         self._unsub_timer = async_track_time_interval(self.hass, self._tick, APP_TIMEOUT / 6)
 
     def _data(self) -> dict[str, Any]:
         return {
             "ultimo": self.last_passage,
-            "storico": self.history,
             "giorno": self.day_offset,
             "stato": self.status,
             "stato_alle": self.status_at.isoformat() if self.status_at else None,
             "oggi": self.today,
             "oggi_data": self.today_date,
-            "foto": base64.b64encode(self.photo).decode() if self.photo else None,
-            "foto_alle": self.photo_at.isoformat() if self.photo_at else None,
             # I comandi in attesa non si salvano: dopo un riavvio di Home Assistant sarebbero vecchi.
             "prossimo_comando": self.next_command_id,
             "ultimo_esito": self.last_result,
@@ -206,9 +208,21 @@ class AvvisiTargheHub:
             "durata_pausa": self.pause_minutes,
         }
 
+    def _big_data(self) -> dict[str, Any]:
+        return {
+            "storico": self.history,
+            "foto": base64.b64encode(self.photo).decode() if self.photo else None,
+            "foto_alle": self.photo_at.isoformat() if self.photo_at else None,
+        }
+
+    @callback
+    def _save_big(self) -> None:
+        self._big_store.async_delay_save(self._big_data, 10)
+
     @staticmethod
     async def async_remove_store(hass: HomeAssistant, entry_id: str) -> None:
         await Store(hass, STORAGE_VERSION, f"{DOMAIN}.{entry_id}").async_remove()
+        await Store(hass, STORAGE_VERSION, f"{DOMAIN}.{entry_id}.storico").async_remove()
 
     @callback
     def async_unload(self) -> None:
@@ -218,6 +232,7 @@ class AvvisiTargheHub:
 
     async def async_flush(self) -> None:
         await self._store.async_save(self._data())
+        await self._big_store.async_save(self._big_data())
 
     # ---- ascoltatori ----
 
@@ -276,6 +291,7 @@ class AvvisiTargheHub:
         if len(keep) != len(self.history):
             self.history = keep
             self._history_keys = {self._key(p) for p in keep}
+            self._save_big()
 
     @staticmethod
     def day_start(offset: int) -> datetime:
@@ -300,7 +316,7 @@ class AvvisiTargheHub:
         added = self._add_history(clean_passage(p) for p in raw[:HISTORY_BATCH])
         if added:
             self._notify()
-            self._store.async_delay_save(self._data, 5)
+            self._save_big()
         return added
 
     # ---- comandi per l'app ----
@@ -431,6 +447,7 @@ class AvvisiTargheHub:
             handler(passage)
         self._notify()
         self._store.async_delay_save(self._data, 5)
+        self._save_big()
         return True
 
     @callback
