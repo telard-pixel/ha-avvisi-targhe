@@ -97,8 +97,9 @@ async def test_pulsante_rimandato_e_poi_scaduto(hass: HomeAssistant, hass_client
     assert [c["tipo"] for c in first] == ["ricollega-nvr"]
     # Nessun esito per un minuto: si rimanda (l'app risponde "già eseguito" se l'aveva fatto).
     freezer.tick(timedelta(seconds=61))
-    await _app_on(client)
-    assert [c["id"] for c in await _poll(client)] == [first[0]["id"]]
+    resent = (await _app_on(client))["comandi"]
+    assert [c["id"] for c in resent] == [first[0]["id"]]
+    assert await _poll(client) == []
     # Dopo 10 minuti senza esito si annulla.
     freezer.tick(timedelta(minutes=10))
     await _app_on(client)
